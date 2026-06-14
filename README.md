@@ -1,8 +1,8 @@
-# Word-Grouping
+# Sorted
 Word Grouping Game for testing
 v1.5
 
-# Word Grouping Game
+# Sorted
 
 Welcome to my hobby project! This is a web-based word grouping game where the objective is to sort various terms into their correct categories.
 
