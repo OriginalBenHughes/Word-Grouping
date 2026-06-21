@@ -1,9 +1,4 @@
 <!DOCTYPE html>
-/*
-		 * Sorted v1.6
-         * by Ben Hughes, 
-		 * inspired by https://thomaswc.com/2025.html
-         */
 <html>
 <head>
     <meta charset="UTF-8">
@@ -260,7 +255,7 @@
             <div class="mode-options">
                 <div class="mode-card" onclick="selectGameMode('relaxed')">
                     <h3 style="margin: 5px 0; color: #4ecca3;">Relaxed</h3>
-                    <p style="font-size: 0.8em; opacity: 0.8; line-height: 1.3;">No clock. Self-paced play. Track your own personal best completion times.</p>
+                    <p style="font-size: 0.8em; opacity: 0.8; line-height: 1.3;">No clock. Self-paced play. Focus on solving categories at your own speed.</p>
                 </div>
                 <div class="mode-card" onclick="selectGameMode('timed')">
                     <h3 style="margin: 5px 0; color: #ffbe0b;">Against Clock</h3>
@@ -309,6 +304,10 @@
     <div id="board"></div>
 
     <script>
+        /*
+         * by Ben Hughes, inspired by https://thomaswc.com/2025.html
+         */
+
         const THEME_DATA = {
             starterPool: {
                 "Colours": ["Red", "Blue", "Green", "Yellow", "Orange", "Purple", "Pink", "White", "Black", "Grey", "Brown", "Violet"],
@@ -329,11 +328,10 @@
                 "Flowers": ["Buttercup", "Camellia", "Marigold", "Bluebell", "Violet", "Chrysanthemum", "Edelweiss", "Primrose", "Orchid", "Dahlia", "Rose", "Foxglove", "Hibiscus", "Lavender", "Bird Of Paradise", "Jasmine", "Lilac", "Delphinium", "Pansy", "Bougainvillea", "Peony", "Daisy", "Azalea", "Periwinkle", "Trillium", "Allium", "Petunia", "Rhododendron", "Phlox", "Nasturtium", "Sunflower", "Baby's Breath", "Aster", "Heather", "Tansy", "Carnation", "Tiger Lily", "Geranium", "Amaryllis", "Lily", "Yarrow", "Calla Lily", "Iris", "Plumeria", "Dandelion", "Daffodil", "Tulip", "Hyacinth"],
                 "Trees": ["Oak", "Willow", "Spruce", "Beech", "Coconut", "Olive", "Magnolia", "Walnut", "Almond", "Pistachio", "Sequoia", "Sycamore", "Fig", "Cacao", "Redwood", "Fir", "Ash", "Birch", "Clove", "Camphor", "Pine", "Maple", "Aspen", "Cherry", "Chestnut", "Cottonwood", "Elm", "Hawthorn", "Hemlock", "Hickory", "Sassafras", "Hazelnut", "Baobab", "Ginkgo", "Neem", "Rubber", "Papaya", "Pecan", "Banyan", "Brazil Nut", "Palm", "Larch", "Cinnamon", "Curry", "Mango"],
 				"Weather Words": ["Breezy", "Calm", "Cloudy", "Cold", "Drizzle", "Fair", "Fog", "Freezing", "Flurry", "Foggy", "Frost", "Gale", "Gusty", "Hazy", "Humid", "Hail", "Hot", "Hurricane", "Icy", "Lightning", "Muggy", "Misty", "Moist", "Monsoon", "Nor'easter", "Overcast", "Rainy", "Rainbow", "Sleet", "Snowy", "Slush", "Stormy", "Smog", "Squall", "Thunderstorm", "Tornado", "Typhoon", "Windy", "Warm", "Whiteout", "Sunny", "Dry", "Clear", "Blizzard", "Heatwave", "Downpour", "Cool", "Chilly"],
-                "Vehicles": ["Car", "Truck", "Bus", "Bicycle", "Motorcycle", "Train", "Plane", "Boat", "Ship", "Helicopter"]
+                "Vehicles": ["Car", "Truck", "Bus", "Bicycle", "Motorcycle", "Train", "Plane", "Boat", "Ship", "Helicopter"],
 				"Collective Nouns": ["Flock", "Herd", "Pack", "Pod", "Pride", "Committee", "Colony", "Band", "School", "Congregation", "Army", "Swarm", "Cluster", "Tribe", "Family", "Group", "Troop", "Drove", "Hive", "Flight", "Flutter", "Rabble", "Litter", "Brood", "Murder", "Bunch", "Convocation", "Gang", "Mob", "Flamboyance", "Horde", "Aerie", "Array", "Team", "Parade", "Court", "Loveliness", "Exaltation", "Conspiracy", "Consortium", "Parliament", "Roost", "Prickle", "Bevy", "Brace", "Maelstrom", "Surfeit", "Chattering"],
 				"Chess Pieces": ["King", "Queen", "Rook", "Bishop", "Knight", "Pawn"],
-                "Card Game Ranks": ["Ace", "King", "Queen", "Jack", "Ten", "Nine", "Eight", "Seven", "Six", "Five", "Four", "Three", "Two", "Joker"],
-
+                "Card Game Ranks": ["Ace", "King", "Queen", "Jack", "Ten", "Nine", "Eight", "Seven", "Six", "Five", "Four", "Three", "Two", "Joker"]
             },
             unlockPool: {
                 "Google Products": ["Search", "Android", "Calendar", "Chrome", "Drive", "Gmail", "Earth", "Maps", "Meet", "Translate", "Classroom", "Alerts", "Assistant", "Gemini", "Books", "Flights", "Images", "Shopping", "Lens", "News", "Patents", "Scholar", "YouTube", "Ads", "AdMob", "Ad Manager", "Blogger", "FeedBurner", "Chat", "Fonts", "Groups", "Voice", "Charts", "Docs", "Sheets", "Slides", "Drawings", "Forms", "Sites", "Keep", "Analytics", "Street View", "Santa Tracker", "Ngram Viewer", "TensorFlow", "Trends", "Workspace", "App Engine"],
@@ -386,7 +384,6 @@
         var gameMode = ''; 
         var remainingSeconds = 0;
         var totalTimerSeconds = 0;
-        var relaxedElapsedSeconds = 0;
         var clockInterval = null;
 
         function restartCurrentLevel() {
@@ -543,30 +540,16 @@
             let currentLvl = parseInt(localStorage.getItem('gameLevel') || 1);
             let newLvl = currentLvl + 1;
             const config = getLevelConfig(newLvl);
-            
-            let relaxedBonusText = "";
-            if (gameMode === 'relaxed') {
-                const prKey = `relaxed_pb_lvl_${currentLvl}`;
-                const currentRecord = parseInt(localStorage.getItem(prKey) || 999999);
-                if (relaxedElapsedSeconds < currentRecord) {
-                    localStorage.setItem(prKey, relaxedElapsedSeconds);
-                    relaxedBonusText = `\n\n🎉 NEW PERSONAL BEST! You solved this level in ${formatTime(relaxedElapsedSeconds)}.`;
-                } else {
-                    relaxedBonusText = `\n\nLevel Time: ${formatTime(relaxedElapsedSeconds)}\nPersonal Best: ${formatTime(currentRecord)}`;
-                }
-            }
 
             localStorage.setItem('gameLevel', newLvl);
             localStorage.removeItem('game_state');
             localStorage.removeItem('game_time_remaining');
-            localStorage.removeItem('relaxed_elapsed_time');
             
             const message = `Level ${newLvl} Unlocked!\n\n` +
                             `New Challenge:\n` +
                             `- ${config.m} Categories\n` +
-                            `- ${config.n} Words per category` + 
-                            relaxedBonusText + 
-                            `\n\nThe board is resetting. Good luck!`;
+                            `- ${config.n} Words per category\n\n` +
+                            `The board is resetting. Good luck!`;
 
             if ((newLvl - 1) % 10 === 0) {
                 let highestCheckpoint = parseInt(localStorage.getItem('highestCheckpoint') || 1);
@@ -765,7 +748,6 @@
         function executeHardReset(targetLevel) {
             localStorage.removeItem('game_state');
             localStorage.removeItem('game_time_remaining');
-            localStorage.removeItem('relaxed_elapsed_time');
             localStorage.removeItem('gameMode');
             localStorage.setItem('gameLevel', targetLevel);
 
@@ -802,8 +784,6 @@
             
             if (gameMode === 'timed') {
                 localStorage.setItem('game_time_remaining', remainingSeconds);
-            } else if (gameMode === 'relaxed') {
-                localStorage.setItem('relaxed_elapsed_time', relaxedElapsedSeconds);
             }
         }
 
