@@ -26,6 +26,7 @@
             min-height: 100vh;
         }
 
+        /* Fixed Header Bar */
         .floating {
             position: fixed;
             top: 0;
@@ -221,6 +222,36 @@
             animation: floatUp 0.8s ease-out forwards;
         }
 
+        /* "Sorted!" Celebration Overlay */
+        #sorted-overlay {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 4.5rem;
+            font-weight: 900;
+            color: var(--accent-color);
+            font-style: italic;
+            text-shadow: 0 0 15px rgba(78, 204, 163, 0.6), 0 0 30px rgba(78, 204, 163, 0.3);
+            letter-spacing: 2px;
+            z-index: 1600;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .pop-in-sorted {
+            animation: sortedBounce 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes sortedBounce {
+            0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
         @keyframes floatUp {
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-40px); opacity: 0; }
@@ -285,6 +316,9 @@
     </div>
 
     <canvas id="fireworks"></canvas>
+    
+    <!-- Stylised celebration text overlay -->
+    <div id="sorted-overlay">Sorted!</div>
 
     <div class="floating">
         <div style="display: flex; align-items: center; gap: 15px;">
@@ -1028,6 +1062,12 @@
 
         function startFireworks() {
             canvas.style.display = 'block';
+            
+            // Show the "Sorted!" text overlay with animation
+            const sortedOverlay = document.getElementById("sorted-overlay");
+            sortedOverlay.style.display = 'block';
+            sortedOverlay.classList.add('pop-in-sorted');
+            
             resizeCanvas(); 
             updateFireworks();
         }
@@ -1036,6 +1076,12 @@
             cancelAnimationFrame(fireworkTimer);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             canvas.style.display = 'none';
+            
+            // Hide the "Sorted!" text overlay
+            const sortedOverlay = document.getElementById("sorted-overlay");
+            sortedOverlay.style.display = 'none';
+            sortedOverlay.classList.remove('pop-in-sorted');
+            
             particles = [];
         }
 
