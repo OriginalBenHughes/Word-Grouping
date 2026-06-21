@@ -1,7 +1,6 @@
-
-		 <!DOCTYPE html>
-		/*
-		 * Sorted v1.5
+<!DOCTYPE html>
+/*
+		 * Sorted v1.6
          * by Ben Hughes, 
 		 * inspired by https://thomaswc.com/2025.html
          */
@@ -9,7 +8,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sorted</title>
+    <title>Word Groupings</title>
     <style>
         :root {
             --bg-color: #1a1a2e;
@@ -20,6 +19,7 @@
             --button-hover: #533483;
             --cat-color: #555;
             --cat-bg: rgba(85, 85, 85, 0.1);
+            --timer-bar-color: #4ecca3;
         }
 
         body {
@@ -59,17 +59,36 @@
             transition: background 0.2s;
         }
 
+        #timer-progress-container {
+            position: fixed;
+            top: 50px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+            z-index: 998;
+            display: none;
+        }
+
+        #timer-progress-bar {
+            width: 100%;
+            height: 100%;
+            background-color: var(--timer-bar-color);
+            transition: width 0.1s linear, background-color 0.5s ease;
+        }
+
         #board {
             display: flex;
             flex-direction: column;
             width: 100vw;
-            padding-top: 100px;
+            padding-top: 115px;
             padding-bottom: 40px;
             min-height: 100vh;
             box-sizing: border-box;
             align-items: center;
             justify-content: flex-start;
             font-size: 16px;
+            transition: font-size 0.3s ease;
         }
 
         .board-row {
@@ -101,7 +120,7 @@
             word-wrap: break-word;
             white-space: nowrap;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
             box-shadow: 3px 3px 10px rgba(0,0,0,0.4);
             outline-offset: -3px;
             position: relative;
@@ -152,7 +171,7 @@
             font-weight: bold;
         }
 
-        #rewardModal {
+        .custom-modal {
             display: none;
             position: fixed;
             z-index: 3000;
@@ -164,33 +183,52 @@
             justify-content: center;
         }
 
-        .reward-container {
+        .modal-container {
             text-align: center;
             max-width: 600px;
-            padding: 20px;
+            padding: 25px;
+            background: var(--header-color);
+            border: 2px solid var(--accent-color);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
         }
 
-        .reward-options {
+        .reward-options, .mode-options {
             display: flex;
             gap: 20px;
-            margin-top: 30px;
+            margin-top: 25px;
             justify-content: center;
             flex-wrap: wrap;
         }
 
-        .reward-card {
+        .reward-card, .mode-card {
             background: var(--button-bg);
             border: 2px solid var(--accent-color);
             padding: 20px;
             border-radius: 15px;
-            width: 150px;
+            width: 160px;
             cursor: pointer;
-            transition: transform 0.2s, background-color 0.2s;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
         }
 
-        .reward-card:hover {
-            transform: translateY(-10px);
+        .reward-card:hover, .mode-card:hover {
+            transform: translateY(-8px);
             background: var(--button-hover);
+            box-shadow: 0 5px 15px rgba(78, 204, 163, 0.4);
+        }
+
+        .time-toast {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.1em;
+            pointer-events: none;
+            z-index: 2000;
+            animation: floatUp 0.8s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-40px); opacity: 0; }
         }
 
         #fireworks {
@@ -215,11 +253,39 @@
 </head>
 <body>
 
-    <div id="rewardModal">
-        <div class="reward-container">
+    <div id="modeModal" class="custom-modal" style="display: flex;">
+        <div class="modal-container">
+            <h1 style="color: var(--accent-color); font-size: 2.2em; margin-bottom: 5px; margin-top:0;">Word Groupings</h1>
+            <p style="font-size: 1.1em; opacity: 0.9;">Choose your play style to begin:</p>
+            <div class="mode-options">
+                <div class="mode-card" onclick="selectGameMode('relaxed')">
+                    <h3 style="margin: 5px 0; color: #4ecca3;">Relaxed</h3>
+                    <p style="font-size: 0.8em; opacity: 0.8; line-height: 1.3;">No clock. Self-paced play. Track your own personal best completion times.</p>
+                </div>
+                <div class="mode-card" onclick="selectGameMode('timed')">
+                    <h3 style="margin: 5px 0; color: #ffbe0b;">Against Clock</h3>
+                    <p style="font-size: 0.8em; opacity: 0.8; line-height: 1.3;">A relentless sprint! No bonuses for grouping words, and incorrect guesses penalize your remaining time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rewardModal" class="custom-modal">
+        <div class="modal-container">
             <h1 style="color: var(--accent-color); font-size: 2.5em; margin-bottom: 5px;">LEVEL UP!</h1>
             <p id="levelUpText" style="font-size: 1.1em;">You've reached a new level. Choose a new theme to unlock and play immediately:</p>
             <div class="reward-options" id="rewardOptions"></div>
+        </div>
+    </div>
+
+    <div id="gameOverModal" class="custom-modal">
+        <div class="modal-container">
+            <h1 style="color: #ff4b2b; font-size: 2.5em; margin-bottom: 5px; margin-top: 0;">TIME'S UP!</h1>
+            <p style="font-size: 1.1em;">You ran out of time on this level challenge.</p>
+            <div class="mode-options" style="margin-top: 20px;">
+                <button onclick="retryCurrentLevel()" style="background-color: var(--accent-color); color: #1a1a2e; border: none; font-weight: bold; border-radius: 8px; padding: 12px 24px; font-size: 1em; cursor: pointer;">Retry Level</button>
+                <button onclick="resetToLevelOne()" style="background-color: transparent; color: #ff4b2b; border: 1px solid #ff4b2b; border-radius: 8px; padding: 12px 24px; font-size: 1em; cursor: pointer; margin-left: 10px;">New Game</button>
+            </div>
         </div>
     </div>
 
@@ -227,8 +293,9 @@
 
     <div class="floating">
         <div style="display: flex; align-items: center; gap: 15px;">
-            <h1 style="margin: 0; font-size: 1.1em; color: var(--accent-color);">Sorted</h1>
+            <h1 style="margin: 0; font-size: 1.1em; color: var(--accent-color);">Word Groupings</h1>
             <div class="level-info">Level: <span id="currentLevelDisplay">1</span></div>
+            <div id="hud-timer" class="level-info" style="border-color: #ffbe0b; color: #ffbe0b; display: none;">0:00</div>
         </div>
         <div style="display: flex; gap: 10px;">
             <button type="button" id="shuffle" onclick="shuffleAndSort()">Shuffle</button>
@@ -237,71 +304,77 @@
         </div>
     </div>
 
+    <div id="timer-progress-container"><div id="timer-progress-bar"></div></div>
+
     <div id="board"></div>
 
     <script>
-
-
         const THEME_DATA = {
             starterPool: {
-                "Colours": ["Red", "Blue", "Green", "Yellow", "Orange", "Purple", "Pink", "White", "Black","Grey", "Brown","Violet"],
+                "Colours": ["Red", "Blue", "Green", "Yellow", "Orange", "Purple", "Pink", "White", "Black", "Grey", "Brown", "Violet"],
                 "Fruits": ["Apple", "Banana", "Orange", "Pear", "Grape", "Kiwi", "Mango"],
-                "Shapes": ["Circle","Square","Triangle","Pentagon","Hexagon"],
+                "Shapes": ["Circle", "Square", "Triangle", "Pentagon", "Hexagon"],
                 "Days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-                "Months": ["January", "February", "March", "April", "May", "June", "July","August","September","October","November","December"],
-                "Kitchen Appliances": ["Toaster", "Blender", "Mixer", "Oven", "Fridge", "Freezer", "Dishwasher", "Microwave", "Kettle", "Fryer", "Grill", "Steamer", "Processor", "Slow cooker", "Toaster oven", "Juicer", "Waffle iron", "Coffee maker"],
-                "Metals": ["Gold", "Silver", "Copper", "Iron", "Bronze", "Platinum", "Aluminum", "Lead", "Zinc", "Tin", "Nickel"],
+                "Months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+                "Kitchen Appliances": ["Toaster", "Blender", "Mixer", "Oven", "Fridge", "Freezer", "Dishwasher", "Microwave", "Kettle", "Fryer", "Grill", "Steamer", "Processor", "Slow Cooker", "Toaster Oven", "Juicer", "Waffle Iron", "Coffee Maker"],
+                "Metals": ["Gold", "Silver", "Copper", "Iron", "Bronze", "Platinum", "Aluminium", "Lead", "Zinc", "Tin", "Nickel"],
                 "Planets": ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"],
-                "Clothing": ["Shirt", "Pants", "Socks", "Shoes", "Hat", "Jacket", "Coat", "Dress", "Skirt", "Gloves", "Scarf"]
+                "Clothing": ["Shirt", "Pants", "Socks", "Shoes", "Hat", "Jacket", "Coat", "Dress", "Skirt", "Gloves", "Scarf"],
+				"Sports": ["Soccer", "Tennis", "Basketball", "Cricket", "Rugby", "Golf", "Hockey", "Swimming", "Baseball", "Volleyball", "Boxing"],
+                "Countries": ["Australia", "Japan", "Canada", "France", "Brazil", "Germany", "India", "Italy", "Mexico", "Spain", "Egypt", "China", "Greece"],
+                "Oceans": ["Pacific", "Atlantic", "Indian", "Southern", "Arctic"],
+                "Furniture": ["Chair", "Table", "Sofa", "Bed", "Desk", "Lamp", "Cabinet", "Shelf", "Dresser", "Mirror"],
+				"Mammals": ["Tenrec", "Shrew", "Mole", "Dog", "Fox", "Wolf", "Jackal", "Bear", "Skunk", "Badger", "Otter", "Weasel", "Raccoon", "Coati", "Seal", "Walrus", "Sea Lion", "Civet", "Cat", "Lion", "Tiger", "Leopard", "Lynx", "Cougar", "Cheetah", "Linsang", "Hyena", "Mongoose", "Camel", "Pig", "Warthog", "Peccary", "Hippopotamus", "Whale", "Narwhal", "Beluga", "Dolphin", "Porpoise", "Chevrotain", "Giraffe", "Okapi", "Moose", "Caribou", "Deer", "Buffalo", "Antelope", "Gazelle", "Sheep", "Bat", "Armadillo", "Mice", "Lemur", "Possum", "Wombat", "Kangaroo", "Hedgehog", "Rabbit", "Horse", "Zebra", "Rhinoceros", "Anteater", "Sloth", "Monkey", "Elephant", "Squirrel", "Mouse", "Beaver", "Gopher", "Rat", "Porcupine", "Aardvark", "Manatee"],
+                "Birds": ["Robin", "Dove", "Mockingbird", "Goldfinch", "Woodpecker", "Sparrow", "Chickadee", "Hummingbird", "Blue Jay", "Titmouse", "Wren", "Magpie", "Duck", "Plover", "Goose", "Swan", "Quail", "Turkey", "Grouse", "Chicken", "Flamingo", "Pigeon", "Roadrunner", "Cuckoo", "Hawk", "Crane", "Snipe", "Puffin", "Penguin", "Gull", "Tern", "Albatross", "Stork", "Gannet", "Booby", "Cormorant", "Condor", "Vulture", "Pelican", "Heron", "Ibis", "Egret", "Osprey", "Eagle", "Owl", "Kingfisher"],
+                "Flowers": ["Buttercup", "Camellia", "Marigold", "Bluebell", "Violet", "Chrysanthemum", "Edelweiss", "Primrose", "Orchid", "Dahlia", "Rose", "Foxglove", "Hibiscus", "Lavender", "Bird Of Paradise", "Jasmine", "Lilac", "Delphinium", "Pansy", "Bougainvillea", "Peony", "Daisy", "Azalea", "Periwinkle", "Trillium", "Allium", "Petunia", "Rhododendron", "Phlox", "Nasturtium", "Sunflower", "Baby's Breath", "Aster", "Heather", "Tansy", "Carnation", "Tiger Lily", "Geranium", "Amaryllis", "Lily", "Yarrow", "Calla Lily", "Iris", "Plumeria", "Dandelion", "Daffodil", "Tulip", "Hyacinth"],
+                "Trees": ["Oak", "Willow", "Spruce", "Beech", "Coconut", "Olive", "Magnolia", "Walnut", "Almond", "Pistachio", "Sequoia", "Sycamore", "Fig", "Cacao", "Redwood", "Fir", "Ash", "Birch", "Clove", "Camphor", "Pine", "Maple", "Aspen", "Cherry", "Chestnut", "Cottonwood", "Elm", "Hawthorn", "Hemlock", "Hickory", "Sassafras", "Hazelnut", "Baobab", "Ginkgo", "Neem", "Rubber", "Papaya", "Pecan", "Banyan", "Brazil Nut", "Palm", "Larch", "Cinnamon", "Curry", "Mango"],
+				"Weather Words": ["Breezy", "Calm", "Cloudy", "Cold", "Drizzle", "Fair", "Fog", "Freezing", "Flurry", "Foggy", "Frost", "Gale", "Gusty", "Hazy", "Humid", "Hail", "Hot", "Hurricane", "Icy", "Lightning", "Muggy", "Misty", "Moist", "Monsoon", "Nor'easter", "Overcast", "Rainy", "Rainbow", "Sleet", "Snowy", "Slush", "Stormy", "Smog", "Squall", "Thunderstorm", "Tornado", "Typhoon", "Windy", "Warm", "Whiteout", "Sunny", "Dry", "Clear", "Blizzard", "Heatwave", "Downpour", "Cool", "Chilly"],
+                "Vehicles": ["Car", "Truck", "Bus", "Bicycle", "Motorcycle", "Train", "Plane", "Boat", "Ship", "Helicopter"]
+				"Collective Nouns": ["Flock", "Herd", "Pack", "Pod", "Pride", "Committee", "Colony", "Band", "School", "Congregation", "Army", "Swarm", "Cluster", "Tribe", "Family", "Group", "Troop", "Drove", "Hive", "Flight", "Flutter", "Rabble", "Litter", "Brood", "Murder", "Bunch", "Convocation", "Gang", "Mob", "Flamboyance", "Horde", "Aerie", "Array", "Team", "Parade", "Court", "Loveliness", "Exaltation", "Conspiracy", "Consortium", "Parliament", "Roost", "Prickle", "Bevy", "Brace", "Maelstrom", "Surfeit", "Chattering"],
+				"Chess Pieces": ["King", "Queen", "Rook", "Bishop", "Knight", "Pawn"],
+                "Card Game Ranks": ["Ace", "King", "Queen", "Jack", "Ten", "Nine", "Eight", "Seven", "Six", "Five", "Four", "Three", "Two", "Joker"],
+
             },
             unlockPool: {
                 "Google Products": ["Search", "Android", "Calendar", "Chrome", "Drive", "Gmail", "Earth", "Maps", "Meet", "Translate", "Classroom", "Alerts", "Assistant", "Gemini", "Books", "Flights", "Images", "Shopping", "Lens", "News", "Patents", "Scholar", "YouTube", "Ads", "AdMob", "Ad Manager", "Blogger", "FeedBurner", "Chat", "Fonts", "Groups", "Voice", "Charts", "Docs", "Sheets", "Slides", "Drawings", "Forms", "Sites", "Keep", "Analytics", "Street View", "Santa Tracker", "Ngram Viewer", "TensorFlow", "Trends", "Workspace", "App Engine"],
-                "Inventions": ["Light bulb", "Electricity", "World Wide Web", "Internal combustion engine", "Steam engine", "Compass", "Printing press", "Gunpowder", "Television", "Telephone", "Airplane", "Parachute", "Microwave oven", "Radio", "The Wheel", "The computer", "Bone tools", "Harpoons", "Bow-and-arrow", "Sewing needle", "Shoes", "Mortar and pestle", "Rope", "Ceramics", "Sliced bread", "Fermentation", "Plumbing", "Public sanitation", "Crossbow", "Currency", "Lightning rod", "Catapult", "Paper", "Double-entry bookkeeping", "Toothbrush", "Telescope", "Cotton gin", "Food canning", "Artificial fertilizer", "Pasteurization", "Stainless steel", "Radiocarbon dating", "Global Positioning System", "Cellular phone", "Search engine", "Bitcoin", "mRNA vaccines"],
+                "Inventions": ["Light Bulb", "Electricity", "World Wide Web", "Internal Combustion Engine", "Steam Engine", "Compass", "Printing Press", "Gunpowder", "Television", "Telephone", "Airplane", "Parachute", "Microwave Oven", "Radio", "The Wheel", "The Computer", "Bone Tools", "Harpoons", "Bow And Arrow", "Sewing Needle", "Shoes", "Mortar And Pestle", "Rope", "Ceramics", "Sliced Bread", "Fermentation", "Plumbing", "Public Sanitation", "Crossbow", "Currency", "Lightning Rod", "Catapult", "Paper", "Double-Entry Bookkeeping", "Toothbrush", "Telescope", "Cotton Gin", "Food Canning", "Artificial Fertilizer", "Pasteurization", "Stainless Steel", "Radiocarbon Dating", "Global Positioning System", "Cellular Phone", "Search Engine", "Bitcoin", "mRNA Vaccines"],
                 "Keyboard": ["A", "B", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "T", "U", "W", "X", "Y", "Z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "`", "-", "=", "ESC", "TAB", "SHIFT", "CTRL", "ALT", "[", "]", "\\", ";", "'", ",", ".", "/", "ENTER"],
                 "Scientific SI Units": ["Metre", "Kilogram", "Second", "Ampere", "Kelvin", "Mole", "Candela", "Hertz", "Newton", "Pascal", "Joule", "Watt", "Coulomb", "Volt", "Farad", "Ohm", "Siemens", "Weber", "Tesla", "Henry", "Lumen", "Lux", "Becquerel", "Gray", "Sievert"],
-                "Types of Numbers" : ["Natural", "Whole", "Rational", "Real", "Irrational", "Imaginary", "Complex", "P-adic", "Decimal", "Binary", "Positive", "Negative", "Even", "Odd", "Prime", "Composite", "Triangular", "Square", "Fibonacci", "Perfect", "Algebraic", "Transcendental", "Transfinite", "Ordinal", "Surreal", "Computable", "Constructible", "Hypercomplex", "Nonstandard", "Concrete", "Abstract", "Denominate", "Abundant", "Bell", "Carmichael", "Catalan", "Deficient", "Euler", "Factorial", "Figurate", "Happy", "Hyperperfect", "Lucky", "Lucas", "Motzkin", "Padovan", "Partition", "Practical", "Pseudoprime", "Semiprime", "Superperfect", "Ulam"],
+                "Types Of Numbers": ["Natural", "Whole", "Rational", "Real", "Irrational", "Imaginary", "Complex", "P-adic", "Decimal", "Binary", "Positive", "Negative", "Even", "Odd", "Prime", "Composite", "Triangular", "Square", "Fibonacci", "Perfect", "Algebraic", "Transcendental", "Transfinite", "Ordinal", "Surreal", "Computable", "Constructible", "Hypercomplex", "Nonstandard", "Concrete", "Abstract", "Denominate", "Abundant", "Bell", "Carmichael", "Catalan", "Deficient", "Euler", "Factorial", "Figurate", "Happy", "Hyperperfect", "Lucky", "Lucas", "Motzkin", "Padovan", "Partition", "Practical", "Pseudoprime", "Semiprime", "Superperfect", "Ulam"],
                 "Elements": ["Hydrogen", "Helium", "Lithium", "Beryllium", "Boron", "Carbon", "Nitrogen", "Oxygen", "Fluorine", "Neon", "Sodium", "Magnesium", "Aluminium", "Silicon", "Phosphorus", "Sulfur", "Chlorine", "Argon", "Potassium", "Calcium", "Scandium", "Titanium", "Vanadium", "Manganese", "Iron", "Cobalt", "Nickel", "Copper", "Zinc", "Gallium", "Germanium", "Arsenic", "Selenium", "Bromine", "Krypton", "Rubidium", "Strontium", "Yttrium", "Zirconium", "Niobium", "Molybdenum", "Technetium", "Ruthenium", "Rhodium", "Palladium"],
-                "Mammals": ["Tenrec", "Shrew", "Mole", "Dog", "Fox", "Wolf", "Jackal", "Bear", "Skunk", "Badger", "Otter", "Weasel", "Raccoon", "Coati", "Seal", "Walrus", "Sea Lion", "Civet", "Cat", "Lion", "Tiger", "Leopard", "Lynx", "Cougar", "Cheetah", "Linsang", "Hyena", "Mongoose", "Camel", "Pig", "Warthog", "Peccary", "Hippopotamus", "Whale", "Narwhal", "Beluga", "Dolphin", "Porpoise", "Chevrotain", "Giraffe", "Okapi", "Moose", "Caribou", "Deer", "Buffalo", "Antelope", "Gazelle", "Sheep", "Bat", "Armadillo", "Mice", "Lemur", "Possum", "Wombat", "Kangaroo", "Hedgehog", "Rabbit", "Horse", "Zebra", "Rhinoceros", "Anteater", "Sloth", "Monkey", "Elephant", "Squirrel", "Mouse", "Beaver", "Gopher", "Rat", "Porcupine", "Aardvark", "Manatee"],
-                "Birds": ["Robin", "Dove", "Mockingbird", "Goldfinch", "Woodpecker", "Sparrow", "Chickadee", "Hummingbird", "Blue Jay", "Titmouse", "Wren", "Magpie", "Duck", "Plover", "Goose", "Swan", "Quail", "Turkey", "Grouse", "Chicken", "Flamingo", "Pigeon", "Roadrunner", "Cuckoo", "Hawk", "Crane", "Snipe", "Puffin", "Penguin", "Gull", "Tern", "Albatross", "Stork", "Gannet", "Booby", "Cormorant", "Condor", "Vulture", "Pelican", "Heron", "Ibis", "Egret", "Osprey", "Eagle", "Owl", "Kingfisher"],
-                "Flowers": ["Buttercup", "Camellia", "Marigold", "Bluebell", "Violet", "Chrysanthemum", "Edelweiss", "Primrose", "Orchid", "Dahlia", "Rose", "Foxglove", "Hibiscus", "Lavender", "Bird of paradise", "Jasmine", "Lilac", "Delphinium", "Pansy", "Bougainvillea", "Peony", "Daisy", "Azalea", "Periwinkle", "Trillium", "Allium", "Petunia", "Rhododendron", "Phlox", "Nasturtium", "Sunflower", "Baby's breath", "Aster", "Heather", "Tansy", "Carnation", "Tiger lily", "Geranium", "Amaryllis", "Lily", "Yarrow", "Calla lily", "Iris", "Plumeria", "Dandelion", "Daffodil", "Tulip", "Hyacinth"],
-                "Trees": ["Oak", "Willow", "Spruce", "Beech", "Coconut", "Olive", "Magnolia", "Walnut", "Almond", "Pistachio", "Sequoia", "Sycamore", "Fig", "Cacao", "Redwood", "Fir", "Ash", "Birch", "Clove", "Camphor", "Pine", "Maple", "Aspen", "Cherry", "Chestnut", "Cottonwood", "Elm", "Hawthorn", "Hemlock", "Hickory", "Sassafras", "Hazelnut", "Baobab", "Ginkgo", "Neem", "Rubber", "Papaya", "Pecan", "Banyan", "Brazil nut", "Palm", "Larch", "Cinnamon", "Curry", "Mango"],
-                "Dog Breeds": ["French bulldog", "Labrador retriever", "Golden retriever", "German shepherd", "Poodle", "Dachshund", "Beagle", "Rottweiler", "Bulldog", "German shorthaired pointer", "Yorkshire terrier", "Australian shepherd", "Cavalier King Charles Spaniel", "Cane Corso", "Pembroke Welsh Corgi", "Doberman Pinscher", "Boxer", "Miniature schnauzer", "Bernese Mountain Dog", "Shih Tzu", "Great Dane", "Pomeranian", "Boston Terrier", "Miniature American Shepherd", "Havanese", "Siberian Husky", "Chihuahua", "English Springer Spaniel", "Shetland Sheepdog", "Border Collie", "Brittany", "Cocker Spaniel", "Belgian Malinois", "Basset Hound", "Vizsla", "English Cocker Spaniel", "Maltese", "Pug", "Collie", "Mastiff", "West Highland White Terrier", "Shiba Inu", "Rhodesian Ridgeback", "Papillon", "Portuguese Water Dog", "Dalmatian", "Scottish Terrier", "Bloodhound", "Saint Bernard", "Irish Setter"],
-                "Gemstones": ["Emerald", "Sapphire", "Diamond", "Amethyst", "Opal", "Aquamarine", "Topaz", "Citrine", "Pearl", "Peridot", "Tanzanite", "Garnet", "Alexandrite", "Tourmaline", "Morganite", "Agate", "Moonstone", "Turquoise", "Lapis lazuli", "Pink Sapphire", "Red Coral", "Benitoite", "Beryl", "Jade", "Jasper", "Spinel", "Tsavorite", "Smoky Quartz", "Corundum", "Carnelian", "Fluorite", "Black Onyx", "Rose Quartz", "Malachite", "Tiger's eye", "Apatite", "Chrysocolla", "Amazonite", "Chrysoprase", "Hematite", "Howlite", "Iolite", "Kyanite", "Lepidolite", "Moldavite", "Jadeite"],         
+                "Dog Breeds": ["French Bulldog", "Labrador Retriever", "Golden Retriever", "German Shepherd", "Poodle", "Dachshund", "Beagle", "Rottweiler", "Bulldog", "German Shorthaired Pointer", "Yorkshire Terrier", "Australian Shepherd", "Cavalier King Charles Spaniel", "Cane Corso", "Pembroke Welsh Corgi", "Doberman Pinscher", "Boxer", "Miniature Schnauzer", "Bernese Mountain Dog", "Shih Tzu", "Great Dane", "Pomeranian", "Boston Terrier", "Miniature American Shepherd", "Havanese", "Siberian Husky", "Chihuahua", "English Springer Spaniel", "Shetland Sheepdog", "Border Collie", "Brittany", "Cocker Spaniel", "Belgian Malinois", "Basset Hound", "Vizsla", "English Cocker Spaniel", "Maltese", "Pug", "Collie", "Mastiff", "West Highland White Terrier", "Shiba Inu", "Rhodesian Ridgeback", "Papillon", "Portuguese Water Dog", "Dalmatian", "Scottish Terrier", "Bloodhound", "Saint Bernard", "Irish Setter"],
+                "Gemstones": ["Emerald", "Sapphire", "Diamond", "Amethyst", "Opal", "Aquamarine", "Topaz", "Citrine", "Pearl", "Peridot", "Tanzanite", "Garnet", "Alexandrite", "Tourmaline", "Morganite", "Agate", "Moonstone", "Turquoise", "Lapis Lazuli", "Pink Sapphire", "Red Coral", "Benitoite", "Beryl", "Jade", "Jasper", "Spinel", "Tsavorite", "Smoky Quartz", "Corundum", "Carnelian", "Fluorite", "Black Onyx", "Rose Quartz", "Malachite", "Tiger's Eye", "Apatite", "Chrysocolla", "Amazonite", "Chrysoprase", "Hematite", "Howlite", "Iolite", "Kyanite", "Lepidolite", "Moldavite", "Jadeite"],         
                 "Constellations": ["Orion", "Ursa Major", "Ursa Minor", "Cassiopeia", "Pegasus", "Andromeda", "Perseus", "Hercules", "Cygnus", "Lyra", "Aquila", "Scorpius", "Sagittarius", "Leo", "Taurus", "Gemini", "Aries", "Libra", "Virgo", "Pisces"],
-                "Muppets": ["Fozzie Bear", "Kermit the Frog", "Miss Piggy", "Beaker", "Gonzo", "Bunsen Honeydew", "Camilla the Chicken", "Link Hogthrob", "Rowlf the Dog", "Statler", "Waldorf", "Animal", "Sam Eagle", "Scooter", "Sweetums", "Abby Cadabby", "Dr. Julius Strangepork", "Elmo", "Pepe the King Prawn", "Rizzo the Rat", "Dr. Teeth", "Floyd Pepper", "Janice", "Zoot", "Lips", "The Swedish Chef", "Walter", "Bobo the Bear", "Uncle Deadly", "Beauregard", "Lew Zealand", "Robin the Frog", "Crazy Harry", "Big Bird", "Oscar the Grouch", "Bert", "Ernie", "Cookie Monster", "Grover", "Count von Count", "Prairie Dawn", "Zoe", "Rosita", "Guy Smiley", "Telly Monster"],
+                "Muppets": ["Fozzie Bear", "Kermit The Frog", "Miss Piggy", "Beaker", "Gonzo", "Bunsen Honeydew", "Camilla The Chicken", "Link Hogthrob", "Rowlf The Dog", "Statler", "Waldorf", "Animal", "Sam Eagle", "Scooter", "Sweetums", "Abby Cadabby", "Dr. Julius Strangepork", "Elmo", "Pepe The King Prawn", "Rizzo The Rat", "Dr. Teeth", "Floyd Pepper", "Janice", "Zoot", "Lips", "The Swedish Chef", "Walter", "Bobo The Bear", "Uncle Deadly", "Beauregard", "Lew Zealand", "Robin The Frog", "Crazy Harry", "Big Bird", "Oscar The Grouch", "Bert", "Ernie", "Cookie Monster", "Grover", "Count Von Count", "Prairie Dawn", "Zoe", "Rosita", "Guy Smiley", "Telly Monster"],
                 "Rock Bands": ["The Beatles", "The Rolling Stones", "The Who", "Led Zeppelin", "Pink Floyd", "AC/DC", "Foo Fighters", "Metallica", "Queen", "Guns N' Roses", "Aerosmith", "U2", "REM", "Black Sabbath", "Pearl Jam", "Fleetwood Mac", "The Doors", "Bon Jovi", "Iron Maiden", "Van Halen", "Ramones", "Kiss", "ZZ Top", "Deep Purple", "Creedence Clearwater Revival", "Motley Crue", "Journey", "Radiohead", "Lynyrd Skynyrd", "Def Leppard", "Rush", "The Beach Boys", "The Allman Brothers", "Grateful Dead", "The Police", "The Clash", "Soundgarden", "Talking Heads", "The Cure", "Steely Dan", "Steve Miller Band", "The Jimi Hendrix Experience", "Coldplay", "ABBA", "Maroon 5"],
-                "Marvel Characters": ["Iron Man", "Spider-Man", "Hulk", "Captain America", "Black Widow", "Hawkeye", "Thor", "Nick Fury", "Scarlet Witch", "Vision", "Antman", "Wasp", "Black Panther", "Dr. Strange", "Star-Lord", "Captain Marvel", "Shang-Chi", "Moon Knight", "Ms. Marvel", "Deadpool", "Blade", "America Chavez", "Drax", "Gamora", "Groot", "Heimdall", "Korg", "X-23", "Gambit", "Quicksilver", "Beast", "Daredevil", "Odin", "Colossus", "Human Torch", "Valkyrie", "She-Hulk", "Adam Warlock", "Ironheart", "Professor X", "Rocket Raccoon", "Pepper Potts", "Phil Coulson", "Wong", "Mr. Fantastic", "The Thing", "Invisible Woman"],
-                "Memes": ["Distracted boyfriend", "Change my mind", "Is this a pigeon?", "Unsure Fry", "This is fine", "Kermit sips Lipton", "World's most interesting man", "Batman slapping Robin", "Expanding Brain", "Two buttons", "One does not simply", "Disaster girl", "Woman yelling at cat", "Gru's plan", "I am once again asking you for your support", "Tuxedo Winnie the Pooh", "Leonardo Decaprio Cheers", "Marked Safe From", "Bad Luck Brian", "They're the same picture", "All The Things", "Four Panel Anakin Padme", "Grumpy Cat", "Winter is Coming", "That Would Be Great", "Clown Applying Makeup", "Picard Facepalm", "Philosoraptor", "Matrix Morpheus", "Hard to Swallow Pills", "Laughing Men in Suits", "Too Damn High", "Am I The Only One Around Here", "Spiderman pointing at Spiderman", "I Should Buy a Boat Cat", "Sparta Leonidas", "See Nobody Cares", "Shut Up and Take My Money", "Everybody loses their minds", "Out of Touch Skinner", "Success Kid", "Overly attached girlfriend", "You know I'm something of a scientist myself", "How do you do fellow kids", "Condescending Willy Wonka"],
-                "D&D Monsters": ["Beholder", "Devil", "Displacer beast", "Gelatinous cube", "Hell hound", "Lich", "Mimic", "Mind flayer", "Mummy", "Owlbear", "Rust monster", "Grue", "Demon", "Tarrasque", "Bugbear", "Carrion crawler", "Chimera", "Cockatrice", "Air Elemental", "Fire Elemental", "Water Elemental", "Earth Elemental", "Djinn", "Ghost", "Ghoul", "Hill Giant", "Gnoll", "Goblin", "Golem", "Harpy", "Hobgoblin", "Hydra", "Imp", "Werewolf", "Manticore", "Medusa", "Minotaur", "Ogre", "Ochre jelly", "Troll", "Umber hulk", "Vampire", "Wight", "Wraith", "Bulette"],
+                "Marvel Characters": ["Iron Man", "Spider-Man", "Hulk", "Captain America", "Black Widow", "Hawkeye", "Thor", "Nick Fury", "Scarlet Witch", "Vision", "Ant-Man", "Wasp", "Black Panther", "Dr. Strange", "Star-Lord", "Captain Marvel", "Shang-Chi", "Moon Knight", "Ms. Marvel", "Deadpool", "Blade", "America Chavez", "Drax", "Gamora", "Groot", "Heimdall", "Korg", "X-23", "Gambit", "Quicksilver", "Beast", "Daredevil", "Odin", "Colossus", "Human Torch", "Valkyrie", "She-Hulk", "Adam Warlock", "Ironheart", "Professor X", "Rocket Raccoon", "Pepper Potts", "Phil Coulson", "Wong", "Mr. Fantastic", "The Thing", "Invisible Woman"],
+                "Memes": ["Distracted Boyfriend", "Change My Mind", "Is This A Pigeon?", "Unsure Fry", "This Is Fine", "Kermit Sips Lipton", "World's Most Interesting Man", "Batman Slapping Robin", "Expanding Brain", "Two Buttons", "One Does Not Simply", "Disaster Girl", "Woman Yelling At Cat", "Gru's Plan", "I Am Once Again Asking You For Your Support", "Tuxedo Winnie The Pooh", "Leonardo DiCaprio Cheers", "Marked Safe From", "Bad Luck Brian", "They're The Same Picture", "All The Things", "Four Panel Anakin Padme", "Grumpy Cat", "Winter Is Coming", "That Would Be Great", "Clown Applying Makeup", "Picard Facepalm", "Philosoraptor", "Matrix Morpheus", "Hard To Swallow Pills", "Laughing Men In Suits", "Too Damn High", "Am I The Only One Around Here", "Spiderman Pointing At Spiderman", "I Should Buy A Boat Cat", "Sparta Leonidas", "See Nobody Cares", "Shut Up And Take My Money", "Everybody Loses Their Minds", "Out Of Touch Skinner", "Success Kid", "Overly Attached Girlfriend", "You Know I'm Something Of A Scientist Myself", "How Do You Do Fellow Kids", "Condescending Willy Wonka"],
+                "D&D Monsters": ["Beholder", "Devil", "Displacer Beast", "Gelatinous Cube", "Hell Hound", "Lich", "Mimic", "Mind Flayer", "Mummy", "Owlbear", "Rust Monster", "Grue", "Demon", "Tarrasque", "Bugbear", "Carrion Crawler", "Chimera", "Cockatrice", "Air Elemental", "Fire Elemental", "Water Elemental", "Earth Elemental", "Djinn", "Ghost", "Ghoul", "Hill Giant", "Gnoll", "Goblin", "Golem", "Harpy", "Hobgoblin", "Hydra", "Imp", "Werewolf", "Manticore", "Medusa", "Minotaur", "Ogre", "Ochre Jelly", "Troll", "Umber Hulk", "Vampire", "Wight", "Wraith", "Bulette"],
                 "Tolkien Characters": ["Aragorn", "Gandalf", "Frodo", "Sauron", "Galadriel", "Gollum", "Arwen", "Legolas", "Bilbo", "Elrond", "Peregrin", "Eowyn", "Gimli", "Samwise", "Saruman", "Boromir", "Tom Bombadil", "Merry", "Theoden", "Faramir", "Eomer", "Treebeard", "Grima", "Denethor", "Radagast", "Glorfindel", "Celeborn", "Thengel", "Goldberry", "Shelob", "Gaffer Gamgee", "Lobelia Sackville-Baggins", "Thorin Oakenshield", "Smaug", "Beorn", "Balin", "Ori", "Dwalin", "Fili", "Kili", "Oin", "Gloin", "Dori", "Nori", "Bifur", "Bofur", "Bombur"],
-                "Beatles Songs": ["Love Me Do", "Back in the USSR", "Across the Universe", "Yellow Submarine", "Nowhere Man", "And I Love Her", "Dear Prudence", "With a Little Help From My Friends", "Sgt. Pepper's Lonely Hearts Club Band", "I've Just Seen a Face", "Taxman", "Helter Skelter", "Got to Get You Into My Life", "All My Loving", "Drive My Car", "Get Back", "Paperback Writer", "Eight Days a Week", "Penny Lane", "You've Got to Hide Your Love Away", "We Can Work It Out", "Can't Buy Me Love", "Here Comes the Sun", "Happiness is a Warm Gun", "Eleanor Rigby", "All You Need Is Love", "Please Please Me", "Lucy in the Sky With Diamonds", "Tomorrow Never Knows", "Ticket to Ride", "I Saw Her Standing There", "Help!", "Revolution", "Norwegian Wood", "A Hard Day's Night", "While My Guitar Gently Weeps", "Come Together", "Let It Be", "Hey Jude", "Something", "In My Life", "Yesterday", "Strawberry Fields Forever", "I Want to Hold Your Hand", "A Day in the Life"],
-                "Tom Hanks Movies": ["Splash", "Bachelor Party", "The Man With One Red Shoe", "Volunteers", "The Money Pit", "Nothing in Common", "Every Time We Say Goodbye", "Dragnet", "Big", "Punchline", "The 'Burbs", "Turner & Hooch", "Joe Versus the Volcano", "A League of their Own", "Sleepless in Seattle", "Philadelphia", "Forrest Gump", "Apollo 13", "Toy Story", "That Thing You Do!", "Saving Private Ryan", "You've Got Mail", "The Green Mile", "Cast Away", "Road to Perdition", "Catch Me If You Can", "The Terminal", "The Polar Express", "The Da Vinci Code", "Charlie Wilson's War", "Angels & Demons", "Larry Crowne", "Captain Phillips", "Saving Mr. Banks", "Bridge of Spies", "Sully", "Inferno", "The Circle", "The Post", "A Beautiful Day in the Neighborhood", "News of the World", "Elvis", "A Man Called Otto", "Asteroid City", "Pinocchio", "Here"],
-                "Scifi TV Shows": ["Quantum Leap", "Babylon 5", "Futurama", "Counterpart", "Orphan Black", "The Twilight Zone", "Firefly", "Fringe", "The Expanse", "Black Mirror", "Stranger Things", "Westworld", "Lost", "Star Trek", "The X-Files", "Doctor Who", "Battlestar Galactica", "Max Headroom", "Farscape", "Rick and Morty", "The 100", "The Prisoner", "Red Dwarf", "Mystery Science Theater 3000", "The Six Million Dollar Man", "Better Off Ted", "Dollhouse", "3rd Rock from the Sun", "Knight Rider", "Lost in Space", "Buck Rogers in the 25th Century", "Stargate SG-1", "The Jetsons", "Mork & Mindy", "Alf", "Foundation", "The Last of Us", "Man in the High Castle", "The Mandalorian", "The Outer Limits", "Torchwood", "Blake's 7", "Sense8", "Eureka", "Space: 1999"],
+                "Beatles Songs": ["Love Me Do", "Back In The USSR", "Across The Universe", "Yellow Submarine", "Nowhere Man", "And I Love Her", "Dear Prudence", "With A Little Help From My Friends", "Sgt. Pepper's Lonely Hearts Club Band", "I've Just Seen A Face", "Taxman", "Helter Skelter", "Got To Get You Into My Life", "All My Loving", "Drive My Car", "Get Back", "Paperback Writer", "Eight Days A Week", "Penny Lane", "You've Got To Hide Your Love Away", "We Can Work It Out", "Can't Buy Me Love", "Here Comes The Sun", "Happiness Is A Warm Gun", "Eleanor Rigby", "All You Need Is Love", "Please Please Me", "Lucy In The Sky With Diamonds", "Tomorrow Never Knows", "Ticket To Ride", "I Saw Her Standing There", "Help!", "Revolution", "Norwegian Wood", "A Hard Day's Night", "While My Guitar Gently Weeps", "Come Together", "Let It Be", "Hey Jude", "Something", "In My Life", "Yesterday", "Strawberry Fields Forever", "I Want To Hold Your Hand", "A Day In The Life"],
+                "Tom Hanks Movies": ["Splash", "Bachelor Party", "The Man With One Red Shoe", "Volunteers", "The Money Pit", "Nothing In Common", "Every Time We Say Goodbye", "Dragnet", "Big", "Punchline", "The 'Burbs", "Turner & Hooch", "Joe Versus The Volcano", "A League Of Their Own", "Sleepless In Seattle", "Philadelphia", "Forrest Gump", "Apollo 13", "Toy Story", "That Thing You Do!", "Saving Private Ryan", "You've Got Mail", "The Green Mile", "Cast Away", "Road To Perdition", "Catch Me If You Can", "The Terminal", "The Polar Express", "The Da Vinci Code", "Charlie Wilson's War", "Angels & Demons", "Larry Crowne", "Captain Phillips", "Saving Mr. Banks", "Bridge Of Spies", "Sully", "Inferno", "The Circle", "The Post", "A Beautiful Day In The Neighborhood", "News Of The World", "Elvis", "A Man Called Otto", "Asteroid City", "Pinocchio", "Here"],
+                "Scifi TV Shows": ["Quantum Leap", "Babylon 5", "Futurama", "Counterpart", "Orphan Black", "The Twilight Zone", "Firefly", "Fringe", "The Expanse", "Black Mirror", "Stranger Things", "Westworld", "Lost", "Star Trek", "The X-Files", "Doctor Who", "Battlestar Galactica", "Max Headroom", "Farscape", "Rick And Morty", "The 100", "The Prisoner", "Red Dwarf", "Mystery Science Theater 3000", "The Six Million Dollar Man", "Better Off Ted", "Dollhouse", "3rd Rock From The Sun", "Knight Rider", "Lost In Space", "Buck Rogers In The 25th Century", "Stargate SG-1", "The Jetsons", "Mork & Mindy", "Alf", "Foundation", "The Last Of Us", "Man In The High Castle", "The Mandalorian", "The Outer Limits", "Torchwood", "Blake's 7", "Sense8", "Eureka", "Space: 1999"],
                 "Cheeses": ["Cheddar", "Brie", "Camembert", "Feta", "Gouda", "American", "Mozzarella", "Asiago", "Cream", "Cottage", "Edam", "Emmental", "Monterey Jack", "Colby", "Cotija", "Basket", "Blue", "Burrata", "Fontina", "Gruyere", "Halloumi", "Maasdam", "Manchego", "Mascarpone", "Parmesan", "Swiss", "Gorgonzola", "Havarti", "Jarlsberg", "Limburger", "Muenster", "Neufchatel", "Paneer", "Provolone", "Ricotta", "Romano", "String", "Roquefort", "Epoisses", "Stilton", "Oaxaca", "Bundz", "Canastra", "Wensleydale", "Bocconcini"],
-                "Pastas": ["Fusilli", "Rigatoni", "Penne", "Bucatini", "Linguine", "Farfalle", "Fettuccine", "Orecchiette", "Spaghetti", "Macaroni", "Pappardelle", "Gnocchi", "Orzo", "Ditalini", "Ziti", "Lasagna", "Tagliatelle", "Angel hair", "Capellini", "Cavatappi", "Gemelli", "Paccheri", "Ravioli", "Cannelloni", "Manicotti", "Rocchetti", "Radiatore", "Rotelle", "Rotini", "Tortellini", "Vermicelli", "Pastina", "Campanelle", "Riccioli", "Lumache", "Strozzapreti", "Calamarata", "Casarecce", "Croxetti", "Fregola", "Busiate", "Pici", "Mafalde", "Conchiglioni", "Cascatelli"],
-                "Cocktails": ["Old Fashioned", "Negroni", "Daiquiri", "Martini", "Margarita", "Whiskey Sour", "Manhattan", "Aperol Spritz", "Mojito", "Bloody Mary", "Gimlet", "Moscow Mule", "Dark 'n' Stormy", "Corpse Reviver", "Clover Club", "Boulevardier", "Mai Tai", "Sazerac", "French 75", "Paloma", "Pisco Sour", "Vieux Carre", "Americano", "Amaretto Sour", "Gin Fizz", "Bramble", "Brandy Crusta", "Bellini", "Pina Colada", "Sidecar", "Aviation", "Irish Coffee", "Last Word", "Tom Collins", "Caiprinha", "Hanky Panky", "Cosmopolitan", "El Diablo", "White Lady", "Gin Gin Mule", "Long Island Iced Tea", "Jungle Bird", "Painkiller", "Fitzgerald", "Old Cuban", "Bee's Knees", "Paper Plane", "Naked & Famous", "Screwdriver", "Kamikaze", "Mint julep", "Mimosa", "Black Russian", "Cuba libre", "Tequila sunrise", "Sex on the beach", "Vesper"],
-                "African Countries": ["Nigeria", "Ethiopia", "Egypt", "DR Congo", "Tanzania", "South Africa", "Kenya", "Sudan", "Uganda", "Algeria", "Morocco", "Angola", "Ghana", "Mozambique", "Madagascar", "Ivory Coast", "Cameroon", "Niger", "Mali", "Burkina Faso", "Malawi", "Zambia", "Chad", "Somalia", "Senegal", "Zimbabwe", "Guinea", "Benin", "Rwanda", "Burundi", "Tunisia", "South Sudan", "Togo", "Sierra Leone", "Libya", "Republic of the Congo", "Liberia", "Central African Republic", "Mauritania", "Eritrea", "Namibia", "Gambia", "Gabon", "Botswana", "Lesotho"],
-                "US State Capitols" : ["Montgomery", "Juneau", "Little Rock", "Sacramento", "Denver", "Hartford", "Dover", "Tallahassee", "Atlanta", "Honolulu", "Boise", "Springfield", "Indianapolis", "Des Moines", "Topeka", "Frankfort", "Baton Rouge", "Augusta", "Annapolis", "Lansing", "St. Paul", "Jackson", "Jefferson City", "Helena", "Carson City", "Concord", "Trenton", "Santa Fe", "Albany", "Raleigh", "Bismarck", "Columbus", "Oklahoma City", "Salem", "Harrisburg", "Providence", "Columbia", "Pierre", "Nashville", "Austin", "Salt Lake City", "Montpelier", "Richmond", "Olympia", "Charleston", "Madison", "Cheyenne"],
-                "World Wonders": ["Statue of Liberty", "Taj Mahal", "Eiffel Tower", "Golden Gate Bridge", "Colosseum", "Great Wall of China", "Great Pyramid of Giza", "Angkor Wat", "Machu Picchu", "Leaning Tower of Pisa", "Mount Rushmore", "Empire State Building", "Grand Canyon", "Sydney Opera House", "The Acropolis", "Christ the Redeemer", "Hollywood Sign", "Niagara Falls", "La Sagrada Familia", "Stonehenge", "Big Ben", "Lincoln Memorial", "Mount Fuji", "London Eye", "St. Peter's Basilica", "Notre Dame", "Tokyo Tower", "St. Basil's Cathedral", "Arc de Triomphe", "The Great Sphinx", "Mount Kilimanjaro", "The Forbidden City", "Mount Everest", "Sears Tower", "Brooklyn Bridge", "Trevi Fountain", "Burj Al Arab Hotel", "Louvre Museum", "Times Square", "The White House", "Buckingham Palace", "Versailles", "Neuschwanstein Castle", "Pompeii", "Edinburgh Castle", "Matterhorn", "CN Tower"],
+                "Pastas": ["Fusilli", "Rigatoni", "Penne", "Bucatini", "Linguine", "Farfalle", "Fettuccine", "Orecchiette", "Spaghetti", "Macaroni", "Pappardelle", "Gnocchi", "Orzo", "Ditalini", "Ziti", "Lasagna", "Tagliatelle", "Angel Hair", "Capellini", "Cavatappi", "Gemelli", "Paccheri", "Ravioli", "Cannelloni", "Manicotti", "Rocchetti", "Radiatore", "Rotelle", "Rotini", "Tortellini", "Vermicelli", "Pastina", "Campanelle", "Riccioli", "Lumache", "Strozzapreti", "Calamarata", "Casarecce", "Croxetti", "Fregola", "Busiate", "Pici", "Mafalde", "Conchiglioni", "Cascatelli"],
+                "Cocktails": ["Old Fashioned", "Negroni", "Daiquiri", "Martini", "Margarita", "Whiskey Sour", "Manhattan", "Aperol Spritz", "Mojito", "Bloody Mary", "Gimlet", "Moscow Mule", "Dark 'N' Stormy", "Corpse Reviver", "Clover Club", "Boulevardier", "Mai Tai", "Sazerac", "French 75", "Paloma", "Pisco Sour", "Vieux Carre", "Americano", "Amaretto Sour", "Gin Fizz", "Bramble", "Brandy Crusta", "Bellini", "Pina Colada", "Sidecar", "Aviation", "Irish Coffee", "Last Word", "Tom Collins", "Caipirinha", "Hanky Panky", "Cosmopolitan", "El Diablo", "White Lady", "Gin Gin Mule", "Long Island Iced Tea", "Jungle Bird", "Painkiller", "Fitzgerald", "Old Cuban", "Bee's Knees", "Paper Plane", "Naked & Famous", "Screwdriver", "Kamikaze", "Mint Julep", "Mimosa", "Black Russian", "Cuba Libre", "Tequila Sunrise", "Sex On The Beach", "Vesper"],
+                "African Countries": ["Nigeria", "Ethiopia", "Egypt", "DR Congo", "Tanzania", "South Africa", "Kenya", "Sudan", "Uganda", "Algeria", "Morocco", "Angola", "Ghana", "Mozambique", "Madagascar", "Ivory Coast", "Cameroon", "Niger", "Mali", "Burkina Faso", "Malawi", "Zambia", "Chad", "Somalia", "Senegal", "Zimbabwe", "Guinea", "Benin", "Rwanda", "Burundi", "Tunisia", "South Sudan", "Togo", "Sierra Leone", "Libya", "Republic Of The Congo", "Liberia", "Central African Republic", "Mauritania", "Eritrea", "Namibia", "Gambia", "Gabon", "Botswana", "Lesotho"],
+                "US State Capitols": ["Montgomery", "Juneau", "Little Rock", "Sacramento", "Denver", "Hartford", "Dover", "Tallahassee", "Atlanta", "Honolulu", "Boise", "Springfield", "Indianapolis", "Des Moines", "Topeka", "Frankfort", "Baton Rouge", "Augusta", "Annapolis", "Lansing", "St. Paul", "Jackson", "Jefferson City", "Helena", "Carson City", "Concord", "Trenton", "Santa Fe", "Albany", "Raleigh", "Bismarck", "Columbus", "Oklahoma City", "Salem", "Harrisburg", "Providence", "Columbia", "Pierre", "Nashville", "Austin", "Salt Lake City", "Montpelier", "Richmond", "Olympia", "Charleston", "Madison", "Cheyenne"],
+                "World Wonders": ["Statue Of Liberty", "Taj Mahal", "Eiffel Tower", "Golden Gate Bridge", "Colosseum", "Great Wall Of China", "Great Pyramid Of Giza", "Angkor Wat", "Machu Picchu", "Leaning Tower Of Pisa", "Mount Rushmore", "Empire State Building", "Grand Canyon", "Sydney Opera House", "The Acropolis", "Christ The Redeemer", "Hollywood Sign", "Niagara Falls", "La Sagrada Familia", "Stonehenge", "Big Ben", "Lincoln Memorial", "Mount Fuji", "London Eye", "St. Peter's Basilica", "Notre Dame", "Tokyo Tower", "St. Basil's Cathedral", "Arc De Triomphe", "The Great Sphinx", "Mount Kilimanjaro", "The Forbidden City", "Mount Everest", "Sears Tower", "Brooklyn Bridge", "Trevi Fountain", "Burj Al Arab Hotel", "Louvre Museum", "Times Square", "The White House", "Buckingham Palace", "Versailles", "Neuschwanstein Castle", "Pompeii", "Edinburgh Castle", "Matterhorn", "CN Tower"],
                 "Prepositions": ["About", "Above", "Across", "After", "Against", "Among", "Around", "Before", "Between", "Except", "For", "Along", "Amid", "As", "At", "Behind", "Below", "Beneath", "But", "By", "Despite", "During", "From", "In", "Inside", "Into", "Near", "Of", "Off", "On", "Onto", "Over", "Since", "With", "Within", "Without", "Unto", "Up", "Upon", "Under", "Until", "Toward", "To", "Than", "Through"],
-                "Musical Instruments": ["Guitar", "Violin", "Drums", "Bass", "Oboe", "Piano", "Synthesizer", "Cello", "Harp", "Viola", "Banjo", "Mandolin", "Ukulele", "Lute", "Sitar", "Lyre", "Flute", "Clarinet", "Saxophone", "Bassoon", "Recorder", "Piccolo", "Trumpet", "Trombone", "Tuba", "French horn", "Bugle", "Organ", "Harpsichord", "Tambourine", "Xylophone", "Accordion", "Bagpipes", "Cymbal", "Didgeridoo", "Fiddle", "Glockenspiel", "Gong", "Harmonica", "Ocarina", "Zither", "Whistle", "Theremin", "Vibraphone", "Timpani"],
-                "Collective Nouns": ["Flock", "Herd", "Pack", "Pod", "Pride", "Committee", "Colony", "Band", "School", "Congregation", "Army", "Swarm", "Cluster", "Tribe", "Family", "Group", "Troop", "Drove", "Hive", "Flight", "Flutter", "Rabble", "Litter", "Brood", "Murder", "Bunch", "Convocation", "Gang", "Mob", "Flamboyance", "Horde", "Aerie", "Array", "Team", "Parade", "Court", "Loveliness", "Exaltation", "Conspiracy", "Consortium", "Parliament", "Roost", "Prickle", "Bevy", "Brace", "Maelstrom", "Surfeit", "Chattering"],
-                "Famous Novels": ["The Great Gatsby", "To Kill a Mockingbird", "The Catcher in the Rye", "Ulysses", "Mrs. Dalloway", "Jane Eyre", "Catch-22", "Lord of the Flies", "A Passage to India", "Adventures of Huckleberry Finn", "Wuthering Heights", "Brave New World", "Lolita", "Anna Karenina", "Don Quixote", "The Grapes of Wrath", "On the Road", "Little Women", "David Copperfield", "The Call of the Wild", "Vanity Fair", "One Hundred Years of Solitude", "The Scarlet Letter", "Middlemarch", "Robinson Crusoe", "Invisible Man", "The Sun Also Rises", "Gulliver's Travels", "Beloved", "Madame Bovary", "The Trial", "The Age of Innocence", "Midnight's Children", "Dracula", "Alice's Adventures in Wonderland", "Treasure Island", "Pride and Prejudice", "Moby Dick", "The Pilgrim's Progress", "A Christmas Carol", "A Tale of Two Cities", "Great Expectations", "The Hobbit", "Frankenstein", "Oliver Twist", "Uncle Tom's Cabin", "Crime and Punishment"],
-                "Fabrics": ["Brocade", "Burlap", "Cambric", "Cheesecloth", "Chenille", "Chiffon", "Chintz", "Corduroy", "Crepe", "Damask", "Denim", "Felt", "Fishnet", "Flannel", "Gabardine", "Gauze", "Georgette", "Gingham", "Gore-tex", "Grosgrain", "Hemp", "Herringbone", "Jersey", "Lace", "Lame", "Leather", "Linen", "Loden", "Mackinaw", "Moleskin", "Muslin", "Oilskin", "Organza", "Pleather", "Polyester", "Poplin", "Rayon", "Sailcloth", "Seersucker", "Serge", "Silk", "Spandex", "Taffeta", "Terrycloth", "Tulle", "Tweed", "Twill", "Velour", "Velvet", "Velveteen"],
-                "Weather Words": ["Breezy", "Calm", "Cloudy", "Cold", "Drizzle", "Fair", "Fog", "Freezing", "Flurry", "Foggy", "Frost", "Gale", "Gusty", "Hazy", "Humid", "Hail", "Hot", "Hurricane", "Icy", "Lightning", "Muggy", "Misty", "Moist", "Monsoon", "Nor'easter", "Overcast", "Rainy", "Rainbow", "Sleet", "Snowy", "Slush", "Stormy", "Smog", "Squall", "Thunderstorm", "Tornado", "Typhoon", "Windy", "Warm", "Whiteout", "Sunny", "Dry", "Clear", "Blizzard", "Heatwave", "Downpour", "Cool", "Chilly"],
-                "Musicals": ["Hamilton", "Hadestown", "The Lion King", "Wicked", "Fiddler on the Roof", "The Book of Mormon", "The Sound of Music", "The Phantom of the Opera", "Annie", "Grease", "Hairspray", "Into The Woods", "Little Shop of Horrors", "Mary Poppins", "My Fair Lady", "Cats", "Aladdin", "Mamma Mia", "Jersey Boys", "Beauty and the Beast", "Miss Saigon", "Kinky Boots", "The Producers", "Rent", "Dear Evan Hansen", "Cabaret", "Spider-Man: Turn Off the Dark", "Starlight Express", "Spamalot", "Jesus Christ Superstar", "In the Heights", "West Side Story", "Avenue Q", "Music Man", "Guys and Dolls", "Six", "Moulin Rouge", "Mean Girls", "Oklahoma!", "Sweeney Todd", "Man of La Mancha", "Oklahoma!", "Sweeney Todd", "Man of La Mancha", "Oliver!", "Chess", "South Pacific", "The King and I"],
-                "Poets": ["Robert Frost", "E. E. Cummings", "T. S. Eliot", "Dante", "Homer", "Maya Angelou", "Emily Dickinson", "Walt Whitman", "Edgar Allan Poe", "William Shakespeare", "Sylvia Plath", "Pablo Neruda", "Langston Hughes", "William Blake", "William Wordsworth", "John Keats", "William Butler Yeats", "Elizabeth Barrett Browning", "Rudyard Kipling", "Oscar Wilde", "Henry Longfellow", "John Milton", "Sappho", "Lord Byron", "Percy Shelly", "Alfred Tennyson", "Ralph Waldo Emerson", "W. H. Auden", "Robert Burns", "Allen Ginsburg", "Ogden Nash", "Phillip Larkin", "Khalil Gibran", "Rainer Maria Rilke", "Dorothy Parker", "Chaucer", "Virgil", "Edmund Spenser", "John Donne", "Alexander Pope", "Samuel Coleridge", "Robert Browning", "Wallace Stevens", "John Dryden", "Ezra Pound", "Thomas Hardy", "John Ashbery"],
-                "Board Games": ["Monopoly", "Scrabble", "Clue", "Risk", "Catan", "Pandemic", "Ticket to Ride", "Carcassonne", "7 Wonders", "Azul", "Splendor", "Codenames", "Wingspan", "Terraforming Mars", "Gloomhaven", "Root", "Everdell", "Patchwork", "Sagrada", "Diplomacy", "Stratego", "Battleship", "Operation", "Mouse Trap"],
-                "Chess Pieces": ["King", "Queen", "Rook", "Bishop", "Knight", "Pawn"],
-                "Card Game Ranks": ["Ace", "King", "Queen", "Jack", "Ten", "Nine", "Eight", "Seven", "Six", "Five", "Four", "Three", "Two", "Joker"],
+                "Musical Instruments": ["Guitar", "Violin", "Drums", "Bass", "Oboe", "Piano", "Synthesizer", "Cello", "Harp", "Viola", "Banjo", "Mandolin", "Ukulele", "Lute", "Sitar", "Lyre", "Flute", "Clarinet", "Saxophone", "Bassoon", "Recorder", "Piccolo", "Trumpet", "Trombone", "Tuba", "French Horn", "Bugle", "Organ", "Harpsichord", "Tambourine", "Xylophone", "Accordion", "Bagpipes", "Cymbal", "Didgeridoo", "Fiddle", "Glockenspiel", "Gong", "Harmonica", "Ocarina", "Zither", "Whistle", "Theremin", "Vibraphone", "Timpani"],               
+                "Famous Novels": ["The Great Gatsby", "To Kill A Mockingbird", "The Catcher In The Rye", "Ulysses", "Mrs. Dalloway", "Jane Eyre", "Catch-22", "Lord Of The Flies", "A Passage To India", "Adventures Of Huckleberry Finn", "Wuthering Heights", "Brave New World", "Lolita", "Anna Karenina", "Don Quixote", "The Grapes Of Wrath", "On The Road", "Little Women", "David Copperfield", "The Call Of The Wild", "Vanity Fair", "One Hundred Years Of Solitude", "The Scarlet Letter", "Middlemarch", "Robinson Crusoe", "Invisible Man", "The Sun Also Rises", "Gulliver's Travels", "Beloved", "Madame Bovary", "The Trial", "The Age Of Innocence", "Midnight's Children", "Dracula", "Alice's Adventures In Wonderland", "Treasure Island", "Pride And Prejudice", "Moby Dick", "The Pilgrim's Progress", "A Christmas Carol", "A Tale Of Two Cities", "Great Expectations", "The Hobbit", "Frankenstein", "Oliver Twist", "Uncle Tom's Cabin", "Crime And Punishment"],
+                "Fabrics": ["Brocade", "Burlap", "Cambric", "Cheesecloth", "Chenille", "Chiffon", "Chintz", "Corduroy", "Crepe", "Damask", "Denim", "Felt", "Fishnet", "Flannel", "Gabardine", "Gauze", "Georgette", "Gingham", "Gore-Tex", "Grosgrain", "Hemp", "Herringbone", "Jersey", "Lace", "Lame", "Leather", "Linen", "Loden", "Mackinaw", "Moleskin", "Muslin", "Oilskin", "Organza", "Pleather", "Polyester", "Poplin", "Rayon", "Sailcloth", "Seersucker", "Serge", "Silk", "Spandex", "Taffeta", "Terrycloth", "Tulle", "Tweed", "Twill", "Velour", "Velvet", "Velveteen"],               
+                "Musicals": ["Hamilton", "Hadestown", "The Lion King", "Wicked", "Fiddler On The Roof", "The Book Of Mormon", "The Sound Of Music", "The Phantom Of The Opera", "Annie", "Grease", "Hairspray", "Into The Woods", "Little Shop Of Horrors", "Mary Poppins", "My Fair Lady", "Cats", "Aladdin", "Mamma Mia", "Jersey Boys", "Beauty And The Beast", "Miss Saigon", "Kinky Boots", "The Producers", "Rent", "Dear Evan Hansen", "Cabaret", "Spider-Man: Turn Off The Dark", "Starlight Express", "Spamalot", "Jesus Christ Superstar", "In The Heights", "West Side Story", "Avenue Q", "Music Man", "Guys And Dolls", "Six", "Moulin Rouge", "Mean Girls", "Oklahoma!", "Sweeney Todd", "Man Of La Mancha", "Oliver!", "Chess", "South Pacific", "The King And I"],
+                "Poets": ["Robert Frost", "E. E. Cummings", "T. S. Eliot", "Dante", "Homer", "Maya Angelou", "Emily Dickinson", "Walt Whitman", "Edgar Allan Poe", "William Shakespeare", "Sylvia Plath", "Pablo Neruda", "Langston Hughes", "William Blake", "William Wordsworth", "John Keats", "William Butler Yeats", "Elizabeth Barrett Browning", "Rudyard Kipling", "Oscar Wilde", "Henry Longfellow", "John Milton", "Sappho", "Lord Byron", "Percy Shelley", "Alfred Tennyson", "Ralph Waldo Emerson", "W. H. Auden", "Robert Burns", "Allen Ginsberg", "Ogden Nash", "Philip Larkin", "Khalil Gibran", "Rainer Maria Rilke", "Dorothy Parker", "Chaucer", "Virgil", "Edmund Spenser", "John Donne", "Alexander Pope", "Samuel Coleridge", "Robert Browning", "Wallace Stevens", "John Dryden", "Ezra Pound", "Thomas Hardy", "John Ashbery"],
+                "Board Games": ["Monopoly", "Scrabble", "Clue", "Risk", "Catan", "Pandemic", "Ticket To Ride", "Carcassonne", "7 Wonders", "Azul", "Splendor", "Codenames", "Wingspan", "Terraforming Mars", "Gloomhaven", "Root", "Everdell", "Patchwork", "Sagrada", "Diplomacy", "Stratego", "Battleship", "Operation", "Mouse Trap"],
                 "Greek Gods": ["Zeus", "Hera", "Poseidon", "Demeter", "Athena", "Apollo", "Artemis", "Ares", "Aphrodite", "Hephaestus", "Hermes", "Hestia", "Dionysus", "Hades", "Persephone", "Eros", "Pan", "Nemesis", "Nike", "Tyche", "Iris", "Hebe"],
                 "Egyptian Gods": ["Ra", "Osiris", "Isis", "Horus", "Seth", "Anubis", "Thoth", "Bastet", "Sekhmet", "Hathor", "Sobek", "Amun", "Ptah", "Nut", "Geb", "Tefnut", "Shu", "Maat", "Khnum", "Nephthys"],
                 "Roman Emperors": ["Augustus", "Tiberius", "Caligula", "Claudius", "Nero", "Galba", "Otho", "Vitellius", "Vespasian", "Titus", "Domitian", "Nerva", "Trajan", "Hadrian", "Antoninus Pius", "Marcus Aurelius", "Commodus", "Septimius Severus", "Caracalla", "Diocletian", "Constantine"],
-                "Books of the Bible": ["Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth", "Samuel", "Kings", "Chronicles", "Ezra", "Nehemiah", "Tobit", "Judith", "Esther", "Maccabees", "Job", "Psalms", "Proverbs", "Ecclesiastes", "Song of Songs", "Wisdom", "Sirach", "Isaiah", "Jeremiah", "Lamentations", "Baruch", "Ezekiel", "Daniel", "Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi", "Matthew", "Mark", "Luke", "John", "Acts", "Romans", "Corinthians", "Galatians", "Ephesians", "Philippians", "Colossians", "Thessalonians", "Timothy", "Titus", "Philemon", "Hebrews", "James", "Peter", "John", "Jude", "Revelation"],
+                "Books Of The Bible": ["Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth", "Samuel", "Kings", "Chronicles", "Ezra", "Nehemiah", "Tobit", "Judith", "Esther", "Maccabees", "Job", "Psalms", "Proverbs", "Ecclesiastes", "Song Of Songs", "Wisdom", "Sirach", "Isaiah", "Jeremiah", "Lamentations", "Baruch", "Ezekiel", "Daniel", "Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi", "Matthew", "Mark", "Luke", "John", "Acts", "Romans", "Corinthians", "Galatians", "Ephesians", "Philippians", "Colossians", "Thessalonians", "Timothy", "Titus", "Philemon", "Hebrews", "James", "Peter", "Jude", "Revelation"],
                 "Retro Video Games": ["Pac-Man", "Tetris", "Donkey Kong", "Frogger", "Asteroids", "Galaga", "Centipede", "Dig Dug", "Q*bert", "Space Invaders", "Pitfall", "Pong", "Defender", "Joust", "Gauntlet", "Out Run", "Paperboy", "Bubble Bobble", "Contra", "Lemmings"],
                 "Chocolate Bars": ["Snickers", "Mars", "Twix", "Bounty", "Milky Way", "Kit Kat", "Crunch", "Aero", "Flake", "Picnic", "Boost", "Skor", "Heath", "Butterfinger", "Toblerone", "Wispa", "Maltesers", "Rolo", "Daim", "Freddo"],
                 "Luxury Car Brands": ["Ferrari", "Lamborghini", "Porsche", "Maserati", "Aston Martin", "Bentley", "Rolls-Royce", "Bugatti", "McLaren", "Pagani", "Lotus", "Maybach", "Lexus", "Jaguar", "Tesla"],
-                "Tools": ["Hammer", "Screwdriver", "Wrench", "Pliers", "Chisel", "Level", "Saw", "Drill", "Mallet", "Plane", "Clamp", "Sander", "Router", "File", "Vice", "Square", "Tape measure", "Awl", "Bolt cutter", "Crowbar"]
+                "Tools": ["Hammer", "Screwdriver", "Wrench", "Pliers", "Chisel", "Level", "Saw", "Drill", "Mallet", "Plane", "Clamp", "Sander", "Router", "File", "Vice", "Square", "Tape Measure", "Awl", "Bolt Cutter", "Crowbar"]
             }
         };
 
@@ -309,6 +382,12 @@
         var N = 4;
         var selected = 0;
         var wordlist = [];
+        
+        var gameMode = ''; 
+        var remainingSeconds = 0;
+        var totalTimerSeconds = 0;
+        var relaxedElapsedSeconds = 0;
+        var clockInterval = null;
 
         function restartCurrentLevel() {
             if (confirm("Are you sure you want to restart this level? This will generate a completely fresh board of words for your current level.")) {
@@ -316,6 +395,13 @@
                 selected = 0;
                 window.location.reload();
             }
+        }
+
+        function retryCurrentLevel() {
+            document.getElementById("gameOverModal").style.display = "none";
+            localStorage.removeItem('game_state');
+            selected = 0;
+            window.location.reload();
         }
 
         function applyCategoryStyle(btn, catName) {
@@ -408,12 +494,24 @@
                 chosenCats.push(catNames.shift());
             }
 
+            const usedWordsOnBoard = new Set();
+
             chosenCats.forEach(cat => {
                 let words = [...categoryPool[cat]];
                 shuffleArray(words);
+                
                 let localTargetN = Math.min(N, words.length);
-                for(let i = 0; i < localTargetN; i++) {
-                    wordlist.push([words[i], cat, localTargetN]);
+                let addedCount = 0;
+
+                for (let i = 0; i < words.length; i++) {
+                    if (addedCount >= localTargetN) break;
+
+                    const normalizedWord = words[i].trim().toLowerCase();
+                    if (!usedWordsOnBoard.has(normalizedWord)) {
+                        wordlist.push([words[i], cat, localTargetN]);
+                        usedWordsOnBoard.add(normalizedWord);
+                        addedCount++;
+                    }
                 }
             });
         }
@@ -432,6 +530,7 @@
         function checkWin() {
             const remaining = document.querySelectorAll('.game-button:not([disabled])');
             if (remaining.length === 0) {
+                stopClock();
                 startFireworks();
                 setTimeout(() => { 
                     stopFireworks();
@@ -445,14 +544,29 @@
             let newLvl = currentLvl + 1;
             const config = getLevelConfig(newLvl);
             
+            let relaxedBonusText = "";
+            if (gameMode === 'relaxed') {
+                const prKey = `relaxed_pb_lvl_${currentLvl}`;
+                const currentRecord = parseInt(localStorage.getItem(prKey) || 999999);
+                if (relaxedElapsedSeconds < currentRecord) {
+                    localStorage.setItem(prKey, relaxedElapsedSeconds);
+                    relaxedBonusText = `\n\n🎉 NEW PERSONAL BEST! You solved this level in ${formatTime(relaxedElapsedSeconds)}.`;
+                } else {
+                    relaxedBonusText = `\n\nLevel Time: ${formatTime(relaxedElapsedSeconds)}\nPersonal Best: ${formatTime(currentRecord)}`;
+                }
+            }
+
             localStorage.setItem('gameLevel', newLvl);
             localStorage.removeItem('game_state');
+            localStorage.removeItem('game_time_remaining');
+            localStorage.removeItem('relaxed_elapsed_time');
             
             const message = `Level ${newLvl} Unlocked!\n\n` +
                             `New Challenge:\n` +
                             `- ${config.m} Categories\n` +
-                            `- ${config.n} Words per category\n\n` +
-                            `The board is resetting. Good luck!`;
+                            `- ${config.n} Words per category` + 
+                            relaxedBonusText + 
+                            `\n\nThe board is resetting. Good luck!`;
 
             if ((newLvl - 1) % 10 === 0) {
                 let highestCheckpoint = parseInt(localStorage.getItem('highestCheckpoint') || 1);
@@ -562,10 +676,8 @@
                 return; 
             }
             
-            if (selected) selected.classList.remove('is-selected');
-            button.classList.add('is-selected');
-            
             if (!selected) {
+                button.classList.add('is-selected');
                 selected = button;
                 return;
             }
@@ -575,26 +687,35 @@
                 button.innerHTML = '<b>' + button.cluster.join(', ') + '</b>';
                 
                 const oldRow = selected.parentElement;
+                selected.classList.remove('is-selected');
                 selected.remove();
                 if (oldRow.children.length === 0) oldRow.remove();
 
                 if (button.cluster.length === button.targetN) {
                     finishCategory(button);
+                    selected = 0;
                 } else {
                     button.classList.add('partial-match');
                     let b = button.querySelector('.word-count-badge') || document.createElement('span');
                     b.className = 'word-count-badge';
                     b.textContent = `${button.cluster.length}/${button.targetN}`;
                     button.appendChild(b);
+
+                    selected = button;
+                    button.classList.add('is-selected');
                 }
-                button.classList.remove('is-selected');
-                selected = 0;
                 saveState();
+                applyFontSizeScaling();
             } else {
                 button.style.outline = "3px solid #ff4b2b";
                 selected.style.outline = "3px solid #ff4b2b";
                 button.classList.add('shake');
                 selected.classList.add('shake');
+                
+                if (gameMode === 'timed') {
+                    adjustTimer(-5, button);
+                }
+
                 let s = selected;
                 let b = button;
                 setTimeout(() => {
@@ -643,6 +764,9 @@
 
         function executeHardReset(targetLevel) {
             localStorage.removeItem('game_state');
+            localStorage.removeItem('game_time_remaining');
+            localStorage.removeItem('relaxed_elapsed_time');
+            localStorage.removeItem('gameMode');
             localStorage.setItem('gameLevel', targetLevel);
 
             if (targetLevel === 1) {
@@ -675,6 +799,12 @@
                 tN:  btn.targetN 
             }));
             localStorage.setItem('game_state', JSON.stringify(state));
+            
+            if (gameMode === 'timed') {
+                localStorage.setItem('game_time_remaining', remainingSeconds);
+            } else if (gameMode === 'relaxed') {
+                localStorage.setItem('relaxed_elapsed_time', relaxedElapsedSeconds);
+            }
         }
 
         function loadState() {
@@ -741,6 +871,114 @@
             });
             saveState();
             applyFontSizeScaling();
+        }
+
+        function selectGameMode(mode) {
+            gameMode = mode;
+            localStorage.setItem('gameMode', mode);
+            document.getElementById("modeModal").style.display = "none";
+            startClockEngine();
+        }
+
+        function initializeTimerState() {
+            const board = document.getElementById("board");
+            const totalWords = board.querySelectorAll('.game-button').length;
+
+            if (gameMode === 'timed') {
+                const storedTime = localStorage.getItem('game_time_remaining');
+                if (storedTime) {
+                    remainingSeconds = parseInt(storedTime);
+                } else {
+                    remainingSeconds = 15 + Math.floor(totalWords * 3.5);
+                }
+                totalTimerSeconds = 15 + Math.floor(totalWords * 3.5);
+                
+                document.getElementById("hud-timer").style.display = "block";
+                document.getElementById("timer-progress-container").style.display = "block";
+                updateTimerDisplay();
+            } else {
+                document.getElementById("hud-timer").style.display = "none";
+                document.getElementById("timer-progress-container").style.display = "none";
+            }
+        }
+
+        function startClockEngine() {
+            initializeTimerState();
+            if (clockInterval) clearInterval(clockInterval);
+
+            if (gameMode !== 'timed') return;
+
+            clockInterval = setInterval(() => {
+                remainingSeconds--;
+                if (remainingSeconds <= 0) {
+                    remainingSeconds = 0;
+                    updateTimerDisplay();
+                    triggerGameOver();
+                } else {
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function stopClock() {
+            if (clockInterval) clearInterval(clockInterval);
+        }
+
+        function updateTimerDisplay() {
+            const hud = document.getElementById("hud-timer");
+            if (gameMode === 'timed') {
+                hud.innerText = formatTime(remainingSeconds);
+                
+                const percent = Math.min(100, (remainingSeconds / totalTimerSeconds) * 100);
+                const progressBar = document.getElementById("timer-progress-bar");
+                progressBar.style.width = `${percent}%`;
+
+                if (percent > 50) {
+                    document.documentElement.style.setProperty('--timer-bar-color', '#4ecca3');
+                    hud.style.color = '#ffbe0b';
+                    hud.style.borderColor = '#ffbe0b';
+                } else if (percent > 20) {
+                    document.documentElement.style.setProperty('--timer-bar-color', '#ffbe0b');
+                    hud.style.color = '#ffbe0b';
+                    hud.style.borderColor = '#ffbe0b';
+                } else {
+                    document.documentElement.style.setProperty('--timer-bar-color', '#ff4b2b');
+                    hud.style.color = '#ff4b2b';
+                    hud.style.borderColor = '#ff4b2b';
+                }
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        function adjustTimer(amount, targetElement) {
+            if (gameMode !== 'timed') return;
+            remainingSeconds += amount;
+            if (remainingSeconds < 0) remainingSeconds = 0;
+            updateTimerDisplay();
+
+            const rect = targetElement.getBoundingClientRect();
+            const toast = document.createElement("div");
+            toast.className = "time-toast";
+            toast.style.left = `${rect.left + (rect.width / 2)}px`;
+            toast.style.top = `${rect.top}px`;
+            toast.style.color = amount > 0 ? "#4ecca3" : "#ff4b2b";
+            toast.innerText = `${amount > 0 ? '+' : ''}${amount}s`;
+            
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 800);
+        }
+
+        function triggerGameOver() {
+            stopClock();
+            document.querySelectorAll('.game-button').forEach(btn => {
+                btn.style.pointerEvents = 'none';
+            });
+            document.getElementById("gameOverModal").style.display = "flex";
         }
 
         const canvas = document.getElementById('fireworks');
@@ -824,13 +1062,21 @@
         function applyFontSizeScaling() {
             const board = document.getElementById("board");
             const totalItems = board.querySelectorAll('.game-button').length;
-            if (totalItems > 20) {
-                const baseFontSize = Math.max(11, 16 - ((totalItems - 20) / 7)); 
-                board.style.fontSize = `${baseFontSize}px`;
-            } else {
-                board.style.fontSize = '16px';
+            
+            let baseFontSize = 16;
+            
+            if (totalItems > 16) {
+                baseFontSize = Math.max(10, 16 - ((totalItems - 16) / 4.5));
+            } else if (totalItems <= 8) {
+                baseFontSize = 22; 
+            } else if (totalItems <= 12) {
+                baseFontSize = 19;
             }
+            
+            board.style.fontSize = `${baseFontSize}px`;
         }
+
+        window.addEventListener('resize', applyFontSizeScaling);
 
         window.onload = () => {
             const lvl = parseInt(localStorage.getItem('gameLevel') || 1);
@@ -869,6 +1115,15 @@
             }
 
             applyFontSizeScaling();
+
+            const storedMode = localStorage.getItem('gameMode');
+            if (storedMode) {
+                gameMode = storedMode;
+                document.getElementById("modeModal").style.display = "none";
+                startClockEngine();
+            } else {
+                document.getElementById("modeModal").style.display = "flex";
+            }
         };
     </script>
 </body>
